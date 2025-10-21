@@ -1,0 +1,169 @@
+{
+  "info": {
+    "name": "La Bodegonea API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "List Products",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{API}}/api/products",
+          "host": [
+            "{{API}}"
+          ],
+          "path": [
+            "api",
+            "products"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get Product",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{API}}/api/products/:id",
+          "host": [
+            "{{API}}"
+          ],
+          "path": [
+            "api",
+            "products",
+            ":id"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Checkout",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"name\":\"Cliente Demo\",\"email\":\"cliente@demo.gt\",\"address\":\"Ciudad de Guatemala\",\"items\":[{\"id\":\"UUID_PRODUCTO\",\"qty\":2,\"price\":150}]}"
+        },
+        "url": {
+          "raw": "{{API}}/api/orders/checkout",
+          "host": [
+            "{{API}}"
+          ],
+          "path": [
+            "api",
+            "orders",
+            "checkout"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Admin Create Product",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{ADMIN_TOKEN}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"sku\":\"SKU-NEW\",\"name\":\"Nuevo Producto\",\"price\":199.99,\"status\":\"draft\"}"
+        },
+        "url": {
+          "raw": "{{API}}/api/admin/products",
+          "host": [
+            "{{API}}"
+          ],
+          "path": [
+            "api",
+            "admin",
+            "products"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Admin Publish Product",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{ADMIN_TOKEN}}"
+          }
+        ],
+        "url": {
+          "raw": "{{API}}/api/admin/products/:id/publish",
+          "host": [
+            "{{API}}"
+          ],
+          "path": [
+            "api",
+            "admin",
+            "products",
+            ":id",
+            "publish"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Admin Upload Image",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{ADMIN_TOKEN}}"
+          }
+        ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "src": ""
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{API}}/api/admin/products/:id/images",
+          "host": [
+            "{{API}}"
+          ],
+          "path": [
+            "api",
+            "admin",
+            "products",
+            ":id",
+            "images"
+          ]
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "API",
+      "value": "http://localhost:5001"
+    },
+    {
+      "key": "ADMIN_TOKEN",
+      "value": ""
+    }
+  ]
+}

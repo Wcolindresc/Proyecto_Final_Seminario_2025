@@ -1,0 +1,46 @@
+
+<!doctype html>
+<html lang="es-GT">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Inicio · La Bodegonea</title>
+  <meta name="description" content="Tienda en línea con catálogo, carrito y checkout en GTQ."/>
+  <meta property="og:title" content="Inicio · La Bodegonea"/>
+  <meta property="og:description" content="Tienda en línea con catálogo, carrito y checkout en GTQ."/>
+  <meta property="og:type" content="website"/>
+  <link rel="preload" href="assets/css/clean.min.css" as="style"/>
+  <link rel="stylesheet" href="assets/css/clean.min.css"/>
+  <script defer src="assets/js/app.js"></script>
+</head>
+<body>
+<header class="site-header">
+  <div class="container">
+    <a class="brand" href="index.html" aria-label="Inicio">La Bodegonea</a>
+    <nav aria-label="Principal">
+      <a href="productos.html">Productos</a>
+      <a href="nosotros.html">Nosotros</a>
+      <a href="contacto.html">Contacto</a>
+    </nav>
+    <a class="cart-link" href="carrito.html" aria-label="Carrito">🛒 <span id="cart-count" aria-live="polite">0</span></a>
+  </div>
+</header>
+<main class="container">
+
+<section class="hero">
+  <h1>Compra fácil, rápido y seguro</h1>
+  <p>Catálogo actualizado, ofertas y entregas a domicilio en Guatemala.</p>
+  <a class="btn" href="productos.html">Explorar productos</a>
+</section>
+<section>
+  <h2>Novedades</h2>
+  <div id="grid-products" class="grid" data-source="latest"></div>
+</section>
+</main>
+<footer class="site-footer">
+  <div class="container">
+    <small>© 2025 La Bodegonea · <a href="terminos.html">Términos</a> · <a href="privacidad.html">Privacidad</a> · <a href="devoluciones.html">Devoluciones</a></small>
+  </div>
+</footer>
+</body>
+</html>

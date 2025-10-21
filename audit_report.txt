@@ -1,0 +1,15 @@
+AUDITORÍA INICIAL DEL ZIP ORIGINAL
+Total archivos: 107
+Posibles rastros por nombre: 1
+ - la_bodegona/vite.config.mjs
+Posibles rastros en contenido: 10
+ * la_bodegona/.env
+ * la_bodegona/.gitignore
+ * la_bodegona/README.md
+ * la_bodegona/index.html
+ * la_bodegona/package-lock.json
+ * la_bodegona/package.json
+ * la_bodegona/src/lib/supabase.js
+ * la_bodegona/src/pages/product-details/components/ProductImageGallery.jsx
+ * la_bodegona/src/pages/shopping-cart/index.jsx
+ * la_bodegona/vite.config.mjs

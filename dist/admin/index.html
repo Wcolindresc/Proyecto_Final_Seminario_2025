@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="es-GT">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Admin · La Bodegonea</title>
+<link rel="stylesheet" href="../assets/css/clean.min.css"/>
+<style>
+  .admin {display:grid;grid-template-columns:220px 1fr;gap:1rem}
+  .sidebar{background:#fff;border:1px solid var(--border);border-radius:12px;padding:1rem;position:sticky;top:1rem;height:max-content}
+  .content{background:#fff;border:1px solid var(--border);border-radius:12px;padding:1rem}
+  .row{display:flex;gap:.5rem;flex-wrap:wrap}
+  table{width:100%;border-collapse:collapse}
+  th,td{border-bottom:1px solid var(--border);padding:.5rem;text-align:left}
+  .tag{background:#eef;padding:.1rem .4rem;border-radius:.4rem;font-size:.85rem}
+</style>
+</head>
+<body>
+<header class="site-header"><div class="container">
+  <a class="brand" href="../index.html">La Bodegonea</a>
+  <div class="row">
+    <input id="api" placeholder="API_BASE_URL"/>
+    <input id="token" placeholder="API_ADMIN_TOKEN"/>
+    <button class="btn" id="save">Guardar</button>
+  </div>
+</div></header>
+<main class="container admin">
+  <aside class="sidebar">
+    <nav>
+      <a href="#" data-tab="productos">Productos</a><br/>
+      <a href="#" data-tab="marcas">Marcas</a><br/>
+      <a href="#" data-tab="categorias">Categorías</a><br/>
+      <a href="#" data-tab="cupones">Cupones</a><br/>
+      <a href="#" data-tab="banners">Banners</a><br/>
+      <a href="#" data-tab="pedidos">Pedidos</a><br/>
+      <a href="#" data-tab="inventario">Inventario</a>
+    </nav>
+  </aside>
+  <section class="content">
+    <div id="view"></div>
+  </section>
+</main>
+<script src="../assets/js/admin.js"></script>
+</body>
+</html>

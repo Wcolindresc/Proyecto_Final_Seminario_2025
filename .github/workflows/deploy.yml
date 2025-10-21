@@ -1,0 +1,20 @@
+
+name: Deploy Flask
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'app/**'
+      - 'requirements.txt'
+      - 'Procfile'
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Render Deploy (optional)
+        if: ${{ secrets.RENDER_API_KEY }}
+        uses: render-examples/gh-actions-deploy-render@v1
+        with:
+          serviceId: ${{ secrets.RENDER_SERVICE_ID }}
+          apiKey: ${{ secrets.RENDER_API_KEY }}

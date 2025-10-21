@@ -1,0 +1,9 @@
+Flask==3.0.3
+gunicorn==21.2.0
+python-dotenv==1.0.1
+
+# Cliente oficial Supabase (trae sus deps correctas)
+supabase==2.6.0
+
+# Driver Postgres precompilado
+psycopg2-binary==2.9.9

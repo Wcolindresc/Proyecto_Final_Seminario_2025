@@ -1,0 +1,51 @@
+
+<!doctype html>
+<html lang="es-GT">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Productos · La Bodegonea</title>
+  <meta name="description" content="Explora el catálogo por categorías, marcas y precio."/>
+  <meta property="og:title" content="Productos · La Bodegonea"/>
+  <meta property="og:description" content="Explora el catálogo por categorías, marcas y precio."/>
+  <meta property="og:type" content="website"/>
+  <link rel="preload" href="assets/css/clean.min.css" as="style"/>
+  <link rel="stylesheet" href="assets/css/clean.min.css"/>
+  <script defer src="assets/js/app.js"></script>
+</head>
+<body>
+<header class="site-header">
+  <div class="container">
+    <a class="brand" href="index.html" aria-label="Inicio">La Bodegonea</a>
+    <nav aria-label="Principal">
+      <a href="productos.html">Productos</a>
+      <a href="nosotros.html">Nosotros</a>
+      <a href="contacto.html">Contacto</a>
+    </nav>
+    <a class="cart-link" href="carrito.html" aria-label="Carrito">🛒 <span id="cart-count" aria-live="polite">0</span></a>
+  </div>
+</header>
+<main class="container">
+
+<section>
+  <h1>Productos</h1>
+  <form id="filters" class="filters" role="search">
+    <input id="q" name="q" placeholder="Buscar por nombre o SKU" aria-label="Buscar"/>
+    <select id="brand" name="brand" aria-label="Marca"><option value="">Todas las marcas</option></select>
+    <select id="cat" name="cat" aria-label="Categoría"><option value="">Todas las categorías</option></select>
+    <select id="order" name="order" aria-label="Orden">
+      <option value="name_asc">Nombre A→Z</option>
+      <option value="price_asc">Precio menor</option>
+      <option value="price_desc">Precio mayor</option>
+    </select>
+  </form>
+  <div id="grid-products" class="grid"></div>
+</section>
+</main>
+<footer class="site-footer">
+  <div class="container">
+    <small>© 2025 La Bodegonea · <a href="terminos.html">Términos</a> · <a href="privacidad.html">Privacidad</a> · <a href="devoluciones.html">Devoluciones</a></small>
+  </div>
+</footer>
+</body>
+</html>

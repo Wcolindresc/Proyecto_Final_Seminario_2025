@@ -1,0 +1,68 @@
+(()=>{const qs=s=>document.querySelector(s);const view=qs("#view");const API=()=>localStorage.getItem("API_BASE_URL")||"";const TOK=()=>localStorage.getItem("API_ADMIN_TOKEN")||"";qs("#api").value=API();qs("#token").value=TOK();qs("#save").onclick=()=>{localStorage.setItem("API_BASE_URL",qs("#api").value);localStorage.setItem("API_ADMIN_TOKEN",qs("#token").value);alert("Guardado");};document.querySelectorAll("[data-tab]").forEach(a=>a.onclick=(e)=>{e.preventDefault();load(a.dataset.tab)});const H=(html)=>{view.innerHTML=html};const auth=()=>({"Authorization":"Bearer "+TOK()});const get=async(p)=>(await fetch(API()+p,{headers:auth()})).json();const post=async(p,b)=>(await fetch(API()+p,{method:"POST",headers:{"Content-Type":"application/json",...auth()},body:JSON.stringify(b)})).json();const put=async(p,b)=>(await fetch(API()+p,{method:"PUT",headers:{"Content-Type":"application/json",...auth()},body:JSON.stringify(b)})).json();const del=async(p)=>(await fetch(API()+p,{method:"DELETE",headers:auth()})).json();const fmtQ=n=>new Intl.NumberFormat('es-GT',{style:'currency',currency:'GTQ'}).format(n||0);async function productos(){const data=await get("/api/admin/products");H(`<div class="row"><button class="btn" id="nuevo">Nuevo producto</button><input id="q" placeholder="Buscar"/></div><table><thead><tr><th>SKU</th><th>Nombre</th><th>Precio</th><th>Status</th><th></th></tr></thead><tbody>${data.map(p=>`<tr><td>${p.sku}</td><td>${p.name}</td><td>${fmtQ(p.price)}</td><td><span class="tag">${p.status}</span></td><td><button data-ed="${p.id}">Editar</button><button data-pb="${p.id}">Publicar</button></td></tr>`).join("")}</tbody></table>`);qs("#nuevo").onclick=()=>editProducto();view.querySelectorAll("[data-ed]").forEach(b=>b.onclick=()=>editProducto(b.dataset.ed));view.querySelectorAll("[data-pb]").forEach(b=>b.onclick=async()=>{await post(`/api/admin/products/${b.dataset.pb}/publish`,{});productos();});}async function editProducto(id){const rec=id ? await get(`/api/admin/products/${id}`):{product:{}};const p=rec.product||{};const title=id?"Editar":"Nuevo";H(`<h2>${title}producto</h2><form id="f"><div class="row"><input name="sku" placeholder="SKU" value="${p.sku||""}" required><input name="name" placeholder="Nombre" value="${p.name||""}" required><input name="price" type="number" step="0.01" placeholder="Precio" value="${p.price||""}" required><input name="price_offer" type="number" step="0.01" placeholder="Oferta" value="${p.price_offer||""}"></div><textarea name="description" placeholder="Descripción">${p.description||""}</textarea><div class="row"><button class="btn" type="submit">Guardar</button><button id="back">Volver</button></div></form><div id="imgs"></div><div class="row"><input type="file" id="file"><button id="up">Subir imagen</button></div>`);qs("#back").onclick=(e)=>{e.preventDefault();productos();};qs("#f").onsubmit=async(e)=>{e.preventDefault();const fd=new FormData(qs("#f"));const body=Object.fromEntries(fd.entries());body.price=Number(body.price||0);if(body.price_offer)body.price_offer=Number(body.price_offer);if(id)await put(`/api/admin/products/${id}`,body);else{const r=await post(`/api/admin/products`,body);id=r.id;}productos();};if(id){const renderImgs=()=>{const imgs=(rec.images||[]).map(i=>`<img src="${i.public_url}" style="width:120px;height:80px;object-fit:cover">`).join("");qs("#imgs").innerHTML=`<div class="row">${imgs||"<p class='muted'>Sin imágenes</p>"}</div>`;};renderImgs();qs("#up").onclick=async()=>{const f=qs("#file").files[0];if(!f)return alert("Selecciona un archivo");const fd=new FormData();fd.append("file",f);const r=await fetch(API()+`/api/admin/products/${id}/images`,{method:"POST",headers:auth(),body:fd});if(r.ok){location.reload();}else{alert("Error subiendo");}};}else{qs("#up").disabled=true;qs("#file").disabled=true;}}async function marcas(){const rows=await get("/api/admin/brands");H(`<h2>Marcas</h2><div class="row"><input id="name" placeholder="Nueva marca"><button class="btn" id="add">Agregar</button></div><table><thead><tr><th>ID</th><th>Nombre</th><th></th></tr></thead><tbody>${rows.map(r=>`<tr><td>${r.id}</td><td contenteditable data-id="${r.id}" data-col="name">${r.name}</td><td><button data-del="${r.id}">Eliminar</button></td></tr>`).join("")}</tbody></table>`);qs("#add").onclick=async()=>{const n=qs("#name").value.trim();if(!n)return;await post("/api/admin/brands",{name:n});marcas();};view.querySelectorAll("[contenteditable]").forEach(el=>el.onblur=async()=>{await put(`/api/admin/brands/${el.dataset.id}`,{[el.dataset.col]:el.textContent.trim()});});view.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{await del(`/api/admin/brands/${b.dataset.del}`);marcas();});}async function categorias(){const rows=await get("/api/admin/categories");H(`<h2>Categorías</h2><div class="row"><input id="name" placeholder="Nombre"><input id="parent" type="number" placeholder="parent_id"><button class="btn" id="add">Agregar</button></div><table><thead><tr><th>ID</th><th>Nombre</th><th>Padre</th><th></th></tr></thead><tbody>${rows.map(r=>`<tr><td>${r.id}</td><td contenteditable data-id="${r.id}" data-col="name">${r.name}</td><td contenteditable data-id="${r.id}" data-col="parent_id">${r.parent_id||""}</td><td><button data-del="${r.id}">Eliminar</button></td></tr>`).join("")}</tbody></table>`);qs("#add").onclick=async()=>{const n=qs("#name").value.trim();const p=qs("#parent").value||null;await post("/api/admin/categories",{name:n,parent_id:p?Number(p):null});categorias();};view.querySelectorAll("[contenteditable]").forEach(el=>el.onblur=async()=>{const val=el.dataset.col=="parent_id"?(el.textContent.trim()or null):el.textContent.trim();await put(`/api/admin/categories/${el.dataset.id}`,{[el.dataset.col]:val});});view.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{await del(`/api/admin/categories/${b.dataset.del}`);categorias();});}async function cupones(){const rows=await get("/api/admin/coupons");H(`<h2>Cupones</h2><div class="row"><input id="code" placeholder="Código"><input id="pct" type="number" placeholder="%"><button class="btn" id="add">Agregar</button></div><table><thead><tr><th>ID</th><th>Código</th><th>%</th><th>Activo</th><th></th></tr></thead><tbody>${rows.map(r=>`<tr><td>${r.id}</td><td contenteditable data-id="${r.id}" data-col="code">${r.code}</td><td contenteditable data-id="${r.id}" data-col="discount_pct">${r.discount_pct}</td><td contenteditable data-id="${r.id}" data-col="active">${r.active}</td><td><button data-del="${r.id}">Eliminar</button></td></tr>`).join("")}</tbody></table>`);qs("#add").onclick=async()=>{await post("/api/admin/coupons",{code:qs("#code").value.trim(),discount_pct:Number(qs("#pct").value||0),active:true});cupones();};view.querySelectorAll("[contenteditable]").forEach(el=>el.onblur=async()=>{let v=el.textContent.trim();if(el.dataset.col!="code")v=Number(v)if el.dataset.col=="discount_pct" else(v.lower()=="true");await put(`/api/admin/coupons/${el.dataset.id}`,{[el.dataset.col]:v});});view.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{await del(`/api/admin/coupons/${b.dataset.del}`);cupones();});}async function banners(){const rows=await get("/api/admin/banners");H(`<h2>Banners</h2><div class="row"><input id="title" placeholder="Título"><input id="img" placeholder="image_url"><input id="link" placeholder="link_url"><button class="btn" id="add">Agregar</button></div><table><thead><tr><th>ID</th><th>Título</th><th>Imagen</th><th>Link</th><th>Orden</th><th></th></tr></thead><tbody>${rows.map(r=>`<tr><td>${r.id}</td><td contenteditable data-id="${r.id}" data-col="title">${r.title||""}</td><td contenteditable data-id="${r.id}" data-col="image_url">${r.image_url||""}</td><td contenteditable data-id="${r.id}" data-col="link_url">${r.link_url||""}</td><td contenteditable data-id="${r.id}" data-col="sort_order">${r.sort_order||0}</td><td><button data-del="${r.id}">Eliminar</button></td></tr>`).join("")}</tbody></table>`);qs("#add").onclick=async()=>{await post("/api/admin/banners",{title:qs("#title").value,image_url:qs("#img").value,link_url:qs("#link").value,sort_order:0});banners();};view.querySelectorAll("[contenteditable]").forEach(el=>el.onblur=async()=>{let v=el.textContent.trim();if(el.dataset.col=="sort_order")v=Number(v||0);await put(`/api/admin/banners/${el.dataset.id}`,{[el.dataset.col]:v});});view.querySelectorAll("[data-del]").forEach(b=>b.onclick=async()=>{await del(`/api/admin/banners/${b.dataset.del}`);banners();});}function load(tab){if(tab=="productos")productos();else if(tab=="marcas")marcas();else if(tab=="categorias")categorias();else if(tab=="cupones")cupones();else if(tab=="banners")banners();}load("productos");})();
+async function pedidos(){
+  const rows=await get("/api/admin/orders");
+  H(`<h2>Pedidos</h2>
+     <div class="row"><select id="st"><option value="">Todos</option><option>nuevo</option><option>pagado</option><option>enviado</option><option>entregado</option><option>cancelado</option></select>
+     <input id="oq" placeholder="Buscar email"><button class="btn" id="of">Filtrar</button></div>
+     <table><thead><tr><th>Fecha</th><th>ID</th><th>Cliente</th><th>Status</th><th></th></tr></thead>
+     <tbody>${rows.map(o=>`<tr><td>${new Date(o.created_at).toLocaleString()}</td><td>${o.id}</td>
+     <td>${o.customer_name||""}<br><span class="muted">${o.customer_email||""}</span></td><td>${o.status}</td>
+     <td><button data-od="${o.id}">Ver</button></td></tr>`).join("")}</tbody></table>`);
+  view.querySelectorAll("[data-od]").forEach(b=>b.onclick=()=>pedidoDetalle(b.dataset.od));
+  qs("#of").onclick=async()=>{
+    const st=qs("#st").value; const qv=qs("#oq").value.trim();
+    const url=`/api/admin/orders${st||qv?`?${new URLSearchParams({status:st,q:qv})}`:""}`;
+    const rows2=await get(url);
+    // re-render
+    H(`<h2>Pedidos</h2><div class="row"><select id="st"><option value="">Todos</option><option>nuevo</option><option>pagado</option><option>enviado</option><option>entregado</option><option>cancelado</option></select>
+    <input id="oq" placeholder="Buscar email" value="${qv}"><button class="btn" id="of">Filtrar</button></div>
+    <table><thead><tr><th>Fecha</th><th>ID</th><th>Cliente</th><th>Status</th><th></th></tr></thead><tbody>${
+      rows2.map(o=>`<tr><td>${new Date(o.created_at).toLocaleString()}</td><td>${o.id}</td>
+      <td>${o.customer_name||""}<br><span class="muted">${o.customer_email||""}</span></td><td>${o.status}</td>
+      <td><button data-od="${o.id}">Ver</button></td></tr>`).join("")
+    }</tbody></table>`);
+    view.querySelectorAll("[data-od]").forEach(b=>b.onclick=()=>pedidoDetalle(b.dataset.od));
+  };
+}
+
+async function pedidoDetalle(id){
+  const rec=await get(`/api/admin/orders/${id}`);
+  const o=rec.order||{}; const items=rec.items||[]; const pay=rec.payments||[]; const shp=rec.shipments||[];
+  H(`<h2>Pedido</h2>
+     <p><strong>ID:</strong> ${o.id}</p>
+     <p><strong>Cliente:</strong> ${o.customer_name||""} (${o.customer_email||""})</p>
+     <p><strong>Dirección:</strong> ${o.shipping_address||""}</p>
+     <p><strong>Status:</strong> ${o.status}</p>
+     <div class="row">
+       <select id="ns"><option>nuevo</option><option>pagado</option><option>enviado</option><option>entregado</option><option>cancelado</option></select>
+       <button class="btn" id="ch">Cambiar estado</button>
+       <input id="am" type="number" step="0.01" placeholder="Pago (Q)"> <button id="addp">Agregar pago</button>
+       <input id="cr" placeholder="Carrier"> <input id="tr" placeholder="Tracking"> <button id="adds">Agregar envío</button>
+       <button id="back">Volver</button>
+     </div>
+     <h3>Items</h3>
+     <table><thead><tr><th>Producto</th><th>Cantidad</th><th>Precio</th></tr></thead>
+     <tbody>${items.map(i=>`<tr><td>${i.product_id}</td><td>${i.qty}</td><td>${fmtQ(i.price)}</td></tr>`).join("")}</tbody></table>
+     <h3>Pagos</h3><ul>${pay.map(p=>`<li>${fmtQ(p.amount)} · ${p.method} · ${new Date(p.created_at).toLocaleString()}</li>`).join("")||"<li class='muted'>Sin pagos</li>"}</ul>
+     <h3>Envíos</h3><ul>${shp.map(s=>`<li>${s.carrier||""} · ${s.tracking_code||""} · ${new Date(s.created_at).toLocaleString()}</li>`).join("")||"<li class='muted'>Sin envíos</li>"}</ul>
+  `);
+  qs("#back").onclick=(e)=>{e.preventDefault();pedidos();};
+  qs("#ch").onclick=async()=>{await post(`/api/admin/orders/${id}/status`,{status:qs("#ns").value});pedidoDetalle(id);};
+  qs("#addp").onclick=async()=>{await post(`/api/admin/orders/${id}/payments`,{amount:Number(qs("#am").value||0),method:"manual"});pedidoDetalle(id);};
+  qs("#adds").onclick=async()=>{await post(`/api/admin/orders/${id}/shipments`,{carrier:qs("#cr").value,tracking_code:qs("#tr").value});pedidoDetalle(id);};
+}
+
+async function inventario(){
+  const rows=await get("/api/admin/inventory/movements");
+  H(`<h2>Inventario</h2>
+     <div class="row"><input id="pid" placeholder="product_id"><input id="vid" placeholder="variant_id"><input id="dl" type="number" placeholder="delta">
+     <input id="rs" placeholder="reason" value="Ajuste manual"><button class="btn" id="adj">Ajustar</button></div>
+     <table><thead><tr><th>Fecha</th><th>Producto</th><th>Delta</th><th>Razón</th></tr></thead>
+     <tbody>${rows.map(r=>`<tr><td>${new Date(r.created_at).toLocaleString()}</td><td>${r.product_id}</td><td>${r.delta}</td><td>${r.reason||""}</td></tr>`).join("")}</tbody></table>`);
+  qs("#adj").onclick=async()=>{
+    await post("/api/admin/inventory/adjust",{
+      product_id:qs("#pid").value||null, variant_id:qs("#vid").value||null,
+      delta:parseInt(qs("#dl").value||0), reason:qs("#rs").value||"Ajuste manual"
+    }); inventario();
+  };
+}
