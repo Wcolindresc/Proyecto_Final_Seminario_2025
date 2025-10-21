@@ -1,199 +1,275 @@
-
 -- 00_schema.sql
-create extension if not exists "uuid-ossp";
+-- =========================================
+-- Extensiones
+-- =========================================
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Users & Roles
-create table if not exists app_users (
-  id uuid primary key default uuid_generate_v4(),
-  auth_user_id uuid unique,
-  email text unique not null,
+-- =========================================
+-- Usuarios y Roles
+-- =========================================
+CREATE TABLE IF NOT EXISTS app_users (
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  auth_user_id uuid UNIQUE,
+  email text UNIQUE NOT NULL,
   full_name text,
-  created_at timestamptz default now()
+  created_at timestamptz DEFAULT now()
 );
 
-create table if not exists app_roles (
-  id bigserial primary key,
-  role_name text unique not null check (role_name in ('Admin','Gestor','Cliente'))
-);
-insert into app_roles(role_name) values ('Admin'),('Gestor'),('Cliente') on conflict do nothing;
-
-create table if not exists user_roles (
-  user_id uuid references app_users(id) on delete cascade,
-  role_id bigint references app_roles(id) on delete cascade,
-  primary key(user_id, role_id)
+-- Si ya existía con otra forma, el bloque DO más abajo la normaliza.
+CREATE TABLE IF NOT EXISTS app_roles (
+  id bigserial PRIMARY KEY,
+  role_name text UNIQUE NOT NULL
 );
 
--- Catalog
-create table if not exists brands (
-  id bigserial primary key,
-  name text unique not null
+-- 🔧 Normalización idempotente de app_roles por si existía con "name" u otra estructura
+DO $$
+BEGIN
+  -- Asegurar columna role_name (renombrar name -> role_name si aplica)
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name='app_roles' AND column_name='role_name'
+  ) THEN
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns 
+      WHERE table_name='app_roles' AND column_name='name'
+    ) THEN
+      EXECUTE 'ALTER TABLE app_roles RENAME COLUMN name TO role_name';
+    ELSE
+      EXECUTE 'ALTER TABLE app_roles ADD COLUMN role_name text';
+    END IF;
+  END IF;
+
+  -- Backfill para evitar NOT NULL si hay filas antiguas sin valor
+  EXECUTE 'UPDATE app_roles SET role_name = COALESCE(role_name, ''Cliente'') WHERE role_name IS NULL';
+
+  -- Unicidad por role_name (sirve para ON CONFLICT)
+  EXECUTE 'CREATE UNIQUE INDEX IF NOT EXISTS ux_app_roles_role_name ON app_roles(role_name)';
+
+  -- Constraint de valores permitidos (crear si no existe)
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'ck_app_roles_allowed_values'
+  ) THEN
+    EXECUTE 'ALTER TABLE app_roles
+             ADD CONSTRAINT ck_app_roles_allowed_values
+             CHECK (role_name IN (''Admin'',''Gestor'',''Cliente''))';
+  END IF;
+
+  -- Hacer NOT NULL (si aplica)
+  BEGIN
+    EXECUTE 'ALTER TABLE app_roles ALTER COLUMN role_name SET NOT NULL';
+  EXCEPTION WHEN OTHERS THEN
+    NULL; -- No romper si existen datos viejos inconsistentes
+  END;
+END
+$$;
+
+CREATE TABLE IF NOT EXISTS user_roles (
+  user_id uuid REFERENCES app_users(id) ON DELETE CASCADE,
+  role_id bigint REFERENCES app_roles(id) ON DELETE CASCADE,
+  PRIMARY KEY(user_id, role_id)
 );
 
-create table if not exists categories (
-  id bigserial primary key,
-  name text not null,
-  parent_id bigint references categories(id)
+-- =========================================
+-- Catálogo
+-- =========================================
+CREATE TABLE IF NOT EXISTS brands (
+  id bigserial PRIMARY KEY,
+  name text UNIQUE NOT NULL
 );
 
-create type product_status as enum ('draft','pending','published','hidden');
+CREATE TABLE IF NOT EXISTS categories (
+  id bigserial PRIMARY KEY,
+  name text NOT NULL,
+  parent_id bigint REFERENCES categories(id)
+);
 
-create table if not exists products (
-  id uuid primary key default uuid_generate_v4(),
-  sku text unique not null,
-  name text not null,
+-- Enum seguro (crear solo si no existe)
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'product_status') THEN
+    CREATE TYPE product_status AS ENUM ('draft','pending','published','hidden');
+  END IF;
+END$$;
+
+CREATE TABLE IF NOT EXISTS products (
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  sku text UNIQUE NOT NULL,
+  name text NOT NULL,
   description text,
-  brand_id bigint references brands(id),
-  category_id bigint references categories(id),
-  price numeric(12,2) not null,
+  brand_id bigint REFERENCES brands(id),
+  category_id bigint REFERENCES categories(id),
+  price numeric(12,2) NOT NULL,
   price_offer numeric(12,2),
-  status product_status not null default 'draft',
+  status product_status NOT NULL DEFAULT 'draft',
   published_at timestamptz,
-  created_by uuid references app_users(id),
-  created_at timestamptz default now()
+  created_by uuid REFERENCES app_users(id),
+  created_at timestamptz DEFAULT now()
 );
-create index on products (status);
-create index on products (sku);
-create index on products (name);
 
-create table if not exists product_variants (
-  id uuid primary key default uuid_generate_v4(),
-  product_id uuid references products(id) on delete cascade,
+CREATE INDEX IF NOT EXISTS idx_products_status ON products (status);
+CREATE INDEX IF NOT EXISTS idx_products_sku ON products (sku);
+CREATE INDEX IF NOT EXISTS idx_products_name ON products (name);
+
+CREATE TABLE IF NOT EXISTS product_variants (
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  product_id uuid REFERENCES products(id) ON DELETE CASCADE,
   name text,
   sku text,
   price numeric(12,2),
-  stock int default 0
+  stock int DEFAULT 0
 );
-create index on product_variants(product_id);
+CREATE INDEX IF NOT EXISTS idx_product_variants_product_id ON product_variants(product_id);
 
-create table if not exists product_images (
-  id bigserial primary key,
-  product_id uuid references products(id) on delete cascade,
+-- Asegurar defaults y check no-negativo de stock
+ALTER TABLE IF EXISTS product_variants ALTER COLUMN stock SET DEFAULT 0;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.table_constraints
+    WHERE table_name='product_variants' AND constraint_name='ck_stock_nonneg'
+  ) THEN
+    ALTER TABLE product_variants ADD CONSTRAINT ck_stock_nonneg CHECK (stock >= 0);
+  END IF;
+END$$;
+
+CREATE TABLE IF NOT EXISTS product_images (
+  id bigserial PRIMARY KEY,
+  product_id uuid REFERENCES products(id) ON DELETE CASCADE,
   public_url text,
-  sort_order int default 0,
-  is_primary boolean default false
+  sort_order int DEFAULT 0,
+  is_primary boolean DEFAULT false
 );
 
-create table if not exists inventory_movements (
-  id bigserial primary key,
-  product_id uuid references products(id) on delete cascade,
-  delta int not null,
+CREATE TABLE IF NOT EXISTS inventory_movements (
+  id bigserial PRIMARY KEY,
+  product_id uuid REFERENCES products(id) ON DELETE CASCADE,
+  delta int NOT NULL,
   reason text,
-  created_at timestamptz default now()
+  created_at timestamptz DEFAULT now()
 );
 
--- Carts & Orders
-create table if not exists carts (
-  id uuid primary key default uuid_generate_v4(),
+-- =========================================
+-- Carritos y Órdenes
+-- =========================================
+CREATE TABLE IF NOT EXISTS carts (
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
   owner uuid, -- auth.uid()
-  created_at timestamptz default now()
+  created_at timestamptz DEFAULT now()
 );
 
-create table if not exists cart_items (
-  id bigserial primary key,
-  cart_id uuid references carts(id) on delete cascade,
-  product_id uuid references products(id),
-  qty int not null check (qty>0)
+CREATE TABLE IF NOT EXISTS cart_items (
+  id bigserial PRIMARY KEY,
+  cart_id uuid REFERENCES carts(id) ON DELETE CASCADE,
+  product_id uuid REFERENCES products(id),
+  qty int NOT NULL CHECK (qty>0)
 );
 
-create table if not exists orders (
-  id uuid primary key default uuid_generate_v4(),
+CREATE TABLE IF NOT EXISTS orders (
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
   owner uuid, -- auth.uid() o null si invitado
-  status text not null check (status in ('nuevo','pagado','enviado','entregado','cancelado')) default 'nuevo',
+  status text NOT NULL CHECK (status IN ('nuevo','pagado','enviado','entregado','cancelado')) DEFAULT 'nuevo',
   customer_email text,
   customer_name text,
   shipping_address text,
-  created_at timestamptz default now()
+  created_at timestamptz DEFAULT now()
 );
 
-create table if not exists order_items (
-  id bigserial primary key,
-  order_id uuid references orders(id) on delete cascade,
-  product_id uuid references products(id),
-  qty int not null,
-  price numeric(12,2) not null
+CREATE TABLE IF NOT EXISTS order_items (
+  id bigserial PRIMARY KEY,
+  order_id uuid REFERENCES orders(id) ON DELETE CASCADE,
+  product_id uuid REFERENCES products(id),
+  qty int NOT NULL,
+  price numeric(12,2) NOT NULL
 );
 
-create table if not exists payments (
-  id bigserial primary key,
-  order_id uuid references orders(id) on delete cascade,
-  amount numeric(12,2) not null,
+-- Añadir variant_id si no existe
+ALTER TABLE IF EXISTS order_items ADD COLUMN IF NOT EXISTS variant_id uuid REFERENCES product_variants(id);
+
+CREATE TABLE IF NOT EXISTS payments (
+  id bigserial PRIMARY KEY,
+  order_id uuid REFERENCES orders(id) ON DELETE CASCADE,
+  amount numeric(12,2) NOT NULL,
   method text,
-  created_at timestamptz default now()
+  created_at timestamptz DEFAULT now()
 );
 
-create table if not exists shipments (
-  id bigserial primary key,
-  order_id uuid references orders(id) on delete cascade,
+CREATE TABLE IF NOT EXISTS shipments (
+  id bigserial PRIMARY KEY,
+  order_id uuid REFERENCES orders(id) ON DELETE CASCADE,
   carrier text,
   tracking_code text,
-  created_at timestamptz default now()
+  created_at timestamptz DEFAULT now()
 );
 
-create table if not exists coupons (
-  id bigserial primary key,
-  code text unique not null,
-  discount_pct int check (discount_pct between 1 and 90),
-  active boolean default true
+CREATE TABLE IF NOT EXISTS coupons (
+  id bigserial PRIMARY KEY,
+  code text UNIQUE NOT NULL,
+  discount_pct int CHECK (discount_pct BETWEEN 1 AND 90),
+  active boolean DEFAULT true
 );
 
-create table if not exists banners (
-  id bigserial primary key,
+CREATE TABLE IF NOT EXISTS banners (
+  id bigserial PRIMARY KEY,
   title text,
   image_url text,
   link_url text,
-  sort_order int default 0
+  sort_order int DEFAULT 0
 );
 
-create table if not exists audit_logs (
-  id bigserial primary key,
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id bigserial PRIMARY KEY,
   actor uuid,
   action text,
   entity text,
   entity_id text,
-  created_at timestamptz default now()
+  created_at timestamptz DEFAULT now()
 );
 
--- Views for public catalog (published only)
-create or replace view products_view_public as
-select p.id, p.sku, p.name, p.description, p.price, p.price_offer, p.published_at,
-       jsonb_build_object('id',b.id,'name',b.name) as brand,
-       jsonb_build_object('id',c.id,'name',c.name) as category
-from products p
-left join brands b on b.id = p.brand_id
-left join categories c on c.id = p.category_id
-where p.status = 'published';
+-- =========================================
+-- Vistas públicas
+-- =========================================
+CREATE OR REPLACE VIEW products_view_public AS
+SELECT p.id, p.sku, p.name, p.description, p.price, p.price_offer, p.published_at,
+       jsonb_build_object('id',b.id,'name',b.name) AS brand,
+       jsonb_build_object('id',c.id,'name',c.name) AS category
+FROM products p
+LEFT JOIN brands b ON b.id = p.brand_id
+LEFT JOIN categories c ON c.id = p.category_id
+WHERE p.status = 'published';
 
-create or replace view product_images_public as
-select id, product_id, public_url, sort_order, is_primary from product_images;
+CREATE OR REPLACE VIEW product_images_public AS
+SELECT id, product_id, public_url, sort_order, is_primary FROM product_images;
 
-
--- Schema additions: variant_id, and stock trigger
-alter table if exists order_items add column if not exists variant_id uuid references product_variants(id);
-
--- Ensure product_variants has stock and non-negative constraint
-alter table if exists product_variants alter column stock set default 0;
-alter table if exists product_variants add constraint ck_stock_nonneg check (stock >= 0);
-
--- Trigger to deduct stock when order changes to 'pagado'
-create or replace function trg_deduct_stock() returns trigger as $$
-begin
-  if (tg_op='UPDATE') and new.status='pagado' and (old.status is distinct from 'pagado') then
-    update product_variants v set stock = v.stock - oi.qty
-    from order_items oi
-    where oi.order_id = new.id and oi.variant_id = v.id;
+-- =========================================
+-- Trigger de stock al pagar orden
+-- =========================================
+CREATE OR REPLACE FUNCTION trg_deduct_stock() RETURNS trigger AS $$
+BEGIN
+  IF (tg_op='UPDATE') AND NEW.status='pagado' AND (OLD.status IS DISTINCT FROM 'pagado') THEN
+    UPDATE product_variants v
+       SET stock = v.stock - oi.qty
+      FROM order_items oi
+     WHERE oi.order_id = NEW.id
+       AND oi.variant_id = v.id;
 
     -- Registrar movimientos de inventario
-    insert into inventory_movements(product_id, delta, reason)
-    select coalesce(pv.product_id, oi.product_id), -oi.qty, 'Venta confirmada'
-    from order_items oi left join product_variants pv on pv.id = oi.variant_id
-    where oi.order_id = new.id;
-  end if;
-  return new;
-end;
-$$ language plpgsql;
+    INSERT INTO inventory_movements(product_id, delta, reason)
+    SELECT COALESCE(pv.product_id, oi.product_id), -oi.qty, 'Venta confirmada'
+      FROM order_items oi
+      LEFT JOIN product_variants pv ON pv.id = oi.variant_id
+     WHERE oi.order_id = NEW.id;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
-drop trigger if exists after_order_paid on orders;
-create trigger after_order_paid
-after update on orders
-for each row execute function trg_deduct_stock();
+DROP TRIGGER IF EXISTS after_order_paid ON orders;
+CREATE TRIGGER after_order_paid
+AFTER UPDATE ON orders
+FOR EACH ROW EXECUTE FUNCTION trg_deduct_stock();
 
+-- =========================================
+-- Seeding de roles (idempotente)
+-- =========================================
+INSERT INTO app_roles(role_name) VALUES ('Admin'), ('Gestor'), ('Cliente')
+ON CONFLICT (role_name) DO NOTHING;
