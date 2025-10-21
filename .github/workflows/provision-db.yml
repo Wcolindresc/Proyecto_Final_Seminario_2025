@@ -19,7 +19,7 @@ jobs:
             echo "❌ DATABASE_URL debe iniciar con postgresql://"; exit 1; fi
           echo "✅ DATABASE_URL OK"
 
-      - name: Apply migrations
+      - name: Apply migrations (SSL required)
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           PGSSLMODE: require
